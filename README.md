@@ -223,3 +223,67 @@ The current implementation does **not** persist the plan or call external Gmail/
 ## License
 
 Add the license and usage terms appropriate for your repository before publishing it.
+
+## Use OOTO-Buddy Outside Gemini Enterprise
+
+OOTO-Buddy is hosted on Cloud Run, while Gemini Enterprise is currently the client that connects to the agent and renders its A2UI interface. The backend can potentially be reused by other clients that implement the A2A protocol and support the A2UI version and component catalog used by this project.
+
+### Potential client platforms
+
+- **Standalone Angular web application** — build a custom chat interface, connect to the agent using an A2A client, and render the returned A2UI payload.
+- **React web application** — integrate an A2UI renderer into a React-based chat or workflow interface.
+- **Flutter application** — explore an A2UI renderer for a mobile, desktop, or web client.
+- **Other agent UI frameworks** — investigate integrations with frameworks such as AG-UI or CopilotKit, subject to their current A2A/A2UI support and integration requirements.
+
+These are possible integration approaches; they are not configured in this repository yet.
+
+### Standalone frontend architecture
+
+```text
+Standalone Angular / React / Flutter client
+  ├── Chat or workflow interface
+  ├── A2A client
+  ├── A2UI renderer and supported component catalog
+  └── Handles user actions and sends them to the agent
+                 │
+                 ▼
+          Cloud Run — OOTO-Buddy
+          ├── FastAPI
+          ├── A2A JSON-RPC endpoint
+          └── Generates A2UI v0.9 payloads
+```
+
+The same Cloud Run backend may serve Gemini Enterprise and a standalone client. The standalone client would need to:
+
+1. Send A2A requests to the deployed agent endpoint.
+2. Read the agent's response and identify `application/json+a2ui` data parts.
+3. Render the A2UI messages using a compatible renderer and catalog.
+4. Preserve the active `surfaceId` when processing user interactions.
+5. Send actions such as `regenerate_draft` and `submit_ooo` back to the agent in the expected A2A message format.
+
+### Portability considerations
+
+The current implementation uses the Gemini Enterprise composite catalog:
+
+```text
+https://www.gstatic.com/vertexaisearch/a2ui/v0_9/gemini_enterprise_composite_catalog.json
+```
+
+It also uses components such as `MaterialCard`, `MaterialColumn`, `MaterialDatepicker`, and `MaterialButton`. These components and their properties may be specific to the catalog supported by Gemini Enterprise.
+
+A standalone renderer may not recognize the same catalog or component definitions. Before integrating another client, verify that it supports the A2UI v0.9 messages and the catalog used by this agent. If it does not, adapt the catalog and map the existing components to the renderer's supported components.
+
+The A2A backend and OOO workflow can remain largely unchanged, but the frontend integration and component-catalog compatibility may require development.
+
+### Portfolio extension idea
+
+A useful portfolio enhancement is to create a standalone Angular OOTO-Buddy application backed by this Cloud Run agent. It could demonstrate:
+
+- A2A agent development and integration
+- A2UI interactive UI rendering
+- Angular frontend development
+- Cloud Run deployment
+- Agent/client protocol communication
+- Reuse of one agent across multiple client interfaces
+
+This standalone client is a proposed future enhancement and is not part of the current implementation.
