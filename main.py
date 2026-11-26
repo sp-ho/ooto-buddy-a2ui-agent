@@ -49,17 +49,19 @@ async def get_agent_card():
 
 @app.post("/")
 async def handle_a2a_rpc(request: Request):
+    """"Handle inbound A2A JSON-RPC 2.0 messages with strict A2A schema compliance"""
     body: Dict[str, Any] = await request.json()
     rpc_id = body.get("id", 1)
     params = body.get("params", {})
     message = params.get("message", {})
     parts = message.get("parts", [])
 
+    # 1. Extract contactId and messageId
     context_id = message.get("contextId", "default-context")
     incoming_msg_id = message.get("messageId", str(uuid.uuid4()))
     response_msg_id = f"resp-{incoming_msg_id}"
 
-    # 1. Detect if this turn is an interactive button action
+    # 2. Extract action payload from inbound parts
     user_action = None
     action_surface_id = None
     for part in parts:
@@ -74,10 +76,10 @@ async def handle_a2a_rpc(request: Request):
         # Button action: preserve the surface that originated the event
         action_surface_id = user_action.get("surfaceId")
 
-    # If it's a button click, update the existing surface;
-    # If it's a new user prompt, generate a brand-new surfaceId for the new turn
+    # If user_action is present, this turn is an in-place update (NOT a new surface)
+    is_update = bool(user_action and action_surface_id)
     action_surface_id = (
-        action_surface_id or f"ooto_surface_{incoming_msg_id[ :8]}"
+        action_surface_id or f"ooto_surface_{incoming_msg_id[:8]}"
     )
 
     # Default form values
@@ -94,7 +96,7 @@ async def handle_a2a_rpc(request: Request):
         " coverage contact below:"
     )
 
-    # 2. Process action events
+    # 3. Process action events
     if user_action:
         event_name = user_action.get("name")
         event_ctx = user_action.get("context", {})
@@ -121,7 +123,7 @@ async def handle_a2a_rpc(request: Request):
                 " your workspace!"
             )
 
-    # 3. Build A2UI messages with the resolved active_surface_id
+    # 4. Generate the A2UI sequence (omits createSurface when it_update=True)
     a2ui_messages = get_ooto_a2ui_payload(
         surface_id=action_surface_id,
         start_date=start_date,
@@ -129,9 +131,10 @@ async def handle_a2a_rpc(request: Request):
         contact=contact,
         draft_msg=draft_text,
         is_confirmed=is_confirmed,
+        is_update=is_update,
     )
 
-    # 4. Return separate DataParts
+    # 5. Pack each A2UI message into its own DataPart
     response_parts = [{"kind": "text", "text": reply_text}]
     for a2ui_msg in a2ui_messages:
         response_parts.append({

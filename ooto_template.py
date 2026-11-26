@@ -15,8 +15,9 @@ def get_ooto_a2ui_payload(
             " (sarahj@example.com)."
         ),
         is_confirmed: bool = False,
+        is_update: bool = False,
 ) -> list[dict]:
-    """Builds the 3-message A2UI v0.9 sequence: createSurface, updateComponents, updateDataModel."""
+    """Builds A2UI v0.9 sequence. Omits createSurface if updating an existing surface."""
 
     contact_display_names = {
         "sarah_jenkins": "Sarah Jenkins (Staff Eng Lead)",
@@ -25,7 +26,7 @@ def get_ooto_a2ui_payload(
     }
     contact_name = contact_display_names.get(contact, contact)
 
-    # If confirmed, render a confirmation view
+    # 1. Choose components depending on confirmation state
     if is_confirmed:
         components = [
             {
@@ -240,14 +241,20 @@ def get_ooto_a2ui_payload(
             },
         ]
 
-    return [
-        {
+    messages = []
+
+    # 2. Only prepend createSurface if this is a brand-new surface
+    if not is_update:
+        messages.append({
             "version": "v0.9",
             "createSurface": {
                 "surfaceId": surface_id,
                 "catalogId": COMPOSITE_CATALOG_ID,
             },
-        },
+        })
+
+    # 3. Always send updateComponents and updateDataModel
+    messages.extend([
         {
             "version": "v0.9",
             "updateComponents": {
@@ -272,5 +279,7 @@ def get_ooto_a2ui_payload(
                     "isConfirmed": is_confirmed,
                 },
             },
-        },
-    ]
+        }
+    ])
+    
+    return messages
